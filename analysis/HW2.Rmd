@@ -1,0 +1,182 @@
+---
+title: "HW2"
+output: html_document
+date: "2025-02-12"
+---
+# Setup
+
+```{r, echo= FALSE, include = FALSE}
+library(tidyverse)
+library(here)
+library(survival)
+library(eha)
+
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 7,
+  fig.height = 5
+)
+
+theme_set(theme_bw() + theme(legend.position = "bottom"))
+
+source(here("source", "utils.R"))
+set.seed(3000)
+```
+
+# 1
+
+Add in Latex Here
+
+
+# 2
+
+Add in Latex here
+
+# 3
+## Newton
+```{r}
+newton_logit <- function(beta, x, y, tol = 1e-8, max_iter = 100) {
+
+  beta_cur = beta
+  beta_history = gradient_vec = matrix(NA, nrow = max_iter, 
+                                       ncol = length(beta))
+  se_beta <- NA
+  for (iter in 1:max_iter) {
+    
+    # store results
+    beta_history[iter,] = beta_cur
+    
+    # Compute the gradient and hessian
+    new_pi <- exp(x %*% beta_cur) / (1 + exp(x %*% beta_cur))
+    
+    gradient <- t(x) %*% (y - new_pi)
+    hessian_ls = as.list(rep(NA, length.out = length(y)))
+    
+    for(i in 1:length(y)){
+      hessian_ls[[i]] <- as.numeric(new_pi[i, ] * (1 - new_pi[i, ])) * tcrossprod(x[i,], x[i,])
+    }
+    
+    hessian <- -1 * Reduce("+", hessian_ls)
+    
+    gradient_vec[iter,] = gradient
+    
+    # Change stopping criterion ?? either converges super fast or not at all..
+    if(sqrt(sum(gradient^2)) < tol){
+      message("Converged in", iter, "iterations.\n")
+      se_beta <- sqrt(diag(solve(-hessian)))
+      print(se_beta)
+      break
+    }
+    
+    # Update the solution
+    beta_cur = beta_cur - solve(hessian) %*% gradient
+  }
+  
+  return(list(solution = beta_cur, 
+              beta_history = beta_history,
+              gradient = gradient_vec,
+              converged = (iter < max_iter),
+              niter = iter,
+              se_beta = se_beta))
+}
+```
+
+```{r}
+n_sim <- 1
+sim_results <- vector("list", length = n_sim)
+
+for (i in 1:n_sim) {
+  sim_data <- gen_logit_data(n = 200,
+                     beta0 = 1,
+                     beta1 = 0.3)
+  
+  initial_guess <- c(2, 1)
+  sim_results[[i]] <- newton_logit(beta = initial_guess,
+                    x = sim_data$x,
+                    y = sim_data$y)
+  
+}
+```
+
+```{r}
+sim_results[[1]]$solution
+```
+
+## GLM
+```{r}
+
+
+mod = glm(y ~ x, data = sim_data, family = binomial)
+coef(mod)
+
+```
+
+
+# 4
+
+```{r}
+em_censored_data <- function(y, delta, guess, tol = 1e-12, max_iter = 100) {
+  
+  lambda <- guess 
+  n <- length(y)
+  tol_criteria <- Inf
+  
+  # define vectors to store elements of interest
+  observed_ll = rep(NA, length = max_iter)
+  lambda_hist = rep(NA, length = max_iter)
+  
+  for (iter in 1:max_iter) {
+    
+    # E-step: Expectation of censored survival times
+    expected_t <- y + (1 - delta) * lambda  # E[t_i | censored]
+    
+    # M-step: Update lambda
+    lambda_new <- sum(expected_t) / n
+    
+    # Use Q function to monitor convergence
+    observed_ll[iter] <- -n * log(lambda_new) - sum(expected_t) / lambda_new
+    
+    # Stores lambda history
+    lambda_hist[iter] <- lambda_new
+    
+    if(iter > 1){
+      tol_criteria = observed_ll[iter] - observed_ll[iter - 1]
+      
+      # Uses squared difference between current and previous iteration of beta
+      tol_criteria = (lambda_hist[iter] - lambda_hist[iter - 1])^2
+    }
+    
+    if (tol_criteria < tol) {
+      cat("Converged in", iter, "iterations.\n")
+      break
+    }
+    
+    lambda <- lambda_new
+  }
+  
+  return(lambda)
+}
+
+# Run the EM algorithm
+lambda_hat <- em_censored_data(y = veteran$time, 
+                               delta = veteran$status, 
+                               guess = 170)
+lambda_hat
+
+```
+
+```{r}
+aft_model <- phreg(Surv(time, status) ~ 1, data = veteran, dist = "weibull", shape = 1)
+
+
+CI_lower <- exp(aft_model$coefficients[1] - 1.96 * sqrt(aft_model$var[1, 1]))
+CI_upper <- exp(aft_model$coefficients[1] + 1.96 * sqrt(aft_model$var[1, 1]))
+
+cat("Estimated lambda from phreg:", exp(aft_model$coefficients[1]), "\n")
+cat("95% CI for lambda (phreg): [", CI_lower, ",", CI_upper, "]\n")
+```
+
+
+
