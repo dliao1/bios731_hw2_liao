@@ -149,27 +149,75 @@ em_censored_data <- function(y, delta, guess, tol = 1e-12, max_iter = 100) {
     }
     
     if (tol_criteria < tol) {
-      cat("Converged in", iter, "iterations.\n")
+      #cat("Converged in", iter, "iterations.\n")
       break
     }
     
     lambda <- lambda_new
   }
   
-  return(lambda)
+  return(list(solution = lambda, 
+              lambda_history = lambda_hist,
+              converged = (iter < max_iter),
+              niter = iter))
 }
-
-# Run the EM algorithm
-lambda_hat <- em_censored_data(y = veteran$time, 
-                               delta = veteran$status, 
-                               guess = 170)
-lambda_hat
 
 ```
 
 ```{r}
-aft_model <- phreg(Surv(time, status) ~ 1, data = veteran, dist = "weibull", shape = 1)
+# Gets variance of EM parameter estimate via bootstrapping
+get_em_var <- function(y, delta, lambda_estim, guess, B) {
+  n <- length(y)
+  bootstrap_estimates <- rep(NA, B)
+  
+  
+  for (b in 1:B) {
+    # Resamples data
+    sample_indices <- sample(1:n, size = n, replace = TRUE)
+    y_boot <- y[sample_indices]
+    delta_boot <- delta[sample_indices]
+    
+    # Calculates new parameter estimate for sample data
+    lambda_boot <- em_censored_data(y = y_boot, 
+                                    delta = delta_boot,
+                                    guess = guess)
+        
 
+    bootstrap_estimates[b] <- lambda_boot$solution
+    
+  }
+  
+  # Gets variance of the bootstrapped MLEs
+  lambda_var <- var(bootstrap_estimates)
+  
+  return(lambda_var)
+}
+```
+
+
+```{r}
+init_guess <- 170
+lambda_hat <- em_censored_data(y = veteran$time, 
+                               delta = veteran$status, 
+                               guess = init_guess)
+
+
+lambda_hat$solution
+
+var_lambda <- get_em_var(y = veteran$time, 
+                        delta = veteran$status,
+                        lambda_estim = lambda_hat$solution,
+                        guess = init_guess,
+                        B = 1000)
+
+
+se_lambda <- sqrt(var_lambda)
+se_lambda
+```
+
+```{r}
+aft_model <- phreg(Surv(time, status) ~ 1, data = veteran, dist = "weibull", shape = 1)
+aft_model
 
 CI_lower <- exp(aft_model$coefficients[1] - 1.96 * sqrt(aft_model$var[1, 1]))
 CI_upper <- exp(aft_model$coefficients[1] + 1.96 * sqrt(aft_model$var[1, 1]))
