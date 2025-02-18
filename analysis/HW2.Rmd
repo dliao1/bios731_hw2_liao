@@ -5,6 +5,11 @@ output:
   html_document: default
 date: "2025-02-12"
 ---
+
+# TODO:
+
+Put 2A and 2C in on Latex
+implement MM (uh oh)
 # Setup
 
 ```{r, echo= FALSE, include = FALSE}
@@ -112,13 +117,13 @@ $\beta_{t+1} = \beta_t - \left ( \frac{\sum_{i=1}^{n} (y_i - \pi_i) X_i} { - \su
 
 where  $\pi_i = \frac{e^{X_i^T \beta}}{1 + e^{X_i^T \beta}}$
 
-## Convex Optimization?
+## Convex Optimization
 
 Gradient of -log f is the negative Hessian:
 
 $-\frac{\partial^2 \ell} {\partial \beta^2} = + \sum_{i=1}^{n} X_i^T (\pi_i (1 - \pi_i)) X_i \geq 0$
 
-Negative hessian is always positive, thus this is a convex optimization problem.
+The negative hessian is always positive, thus this is a convex optimization problem.
 
 # 2
 
@@ -295,7 +300,7 @@ $$
 \! -n \log \lambda - \frac{1}{\lambda} \sum_{i=1}^{n} y_i - \sum_{i=1}^{n}(1- \delta_i)
 $$
 
-Taking the derivative of \( Q \) and setting it to 0:
+Taking the derivative of $Q$ w.r.t $\lambda$ and setting it to 0:
 
 $$
 \frac{\partial \ell}{\partial \lambda} = \frac{-n}{\lambda} + \frac{\sum_{i=1}^{n} y_i}{\lambda^2}
@@ -393,12 +398,12 @@ get_em_var <- function(y, delta, lambda_estim, guess, B) {
 
 ```{r}
 init_guess <- 170
+alpha <- 0.05
+
 lambda_hat <- em_censored_data(y = veteran$time, 
                                delta = veteran$status, 
                                guess = init_guess)
 
-
-lambda_hat$solution
 
 var_lambda <- get_em_var(y = veteran$time, 
                         delta = veteran$status,
@@ -408,7 +413,15 @@ var_lambda <- get_em_var(y = veteran$time,
 
 
 se_lambda <- sqrt(var_lambda)
-se_lambda
+
+
+fitted_lambda <- lambda_hat$solution
+
+CI_lower <- fitted_lambda - qnorm(1 - alpha/2) * se_lambda
+CI_upper <- fitted_lambda + qnorm(1 - alpha/2) * se_lambda
+
+cat("Estimated lambda from EM:", fitted_lambda, "\n")
+cat("95% CI for lambda (EM): [", CI_lower, ",", CI_upper, "]\n")
 ```
 
 ```{r}
@@ -421,6 +434,20 @@ CI_upper <- exp(aft_model$coefficients[1] + 1.96 * sqrt(aft_model$var[1, 1]))
 cat("Estimated lambda from phreg:", exp(aft_model$coefficients[1]), "\n")
 cat("95% CI for lambda (phreg): [", CI_lower, ",", CI_upper, "]\n")
 ```
+
+The fitted $\lambda$ obtained using EM algorithm was 130.1797, with a CI of
+[ 101.8725 , 158.4869 ]. I monitered convergence by comparing the 
+difference between the observed likelihood at the current iteration and the 
+observed likelihood at the previous iteration - if the difference was < 1e-12,
+the algorithm was determined to have "converged".
+The variance for the confidence interval was computed using bootstrap sampling.
+
+Using the phreg command, the estimated lambda was 130.1797 with a CI of
+[ 109.4726 , 154.8035 ]. Using our EM algorithm, we converged to the same
+estimated lambda/mean survival time, but it looks like our EM confidence interval
+was slightly wider.
+
+
 
 # Extra Credit A
 Fisher/expected information:
@@ -550,7 +577,7 @@ $$
 \sum_{i=1}^{n} X_i^T \frac{1}{\sqrt{2\pi}} e^{-\frac{(X_i^T \beta)^2}{2}} \left[ \frac{y_i}{\Phi(X_i^T \beta)} - \frac{1 - y_i}{1 - \Phi(X_i^T \beta)} \right]
 $$
 
-## Hessian
+## Hessian Calculation
 
 Taking the second derivative using the product rule:
 
@@ -588,7 +615,7 @@ $$
 $$
 
 
-## Full Hessian
+### Full Hessian
 
 All together:
 
