@@ -28,7 +28,10 @@ knitr::opts_chunk$set(
 
 theme_set(theme_bw() + theme(legend.position = "bottom"))
 
-source(here("source", "utils.R"))
+source(here("source", "gen_logit_data.R"))
+source(here("source", "newton_logit.R"))
+source(here("source", "em_survival.R"))
+
 set.seed(3000)
 ```
 
@@ -131,56 +134,10 @@ Add in Latex here
 
 # 3
 ## Newton
-```{r}
-newton_logit <- function(beta, x, y, tol = 1e-8, max_iter = 100) {
-
-  beta_cur = beta
-  beta_history = gradient_vec = matrix(NA, nrow = max_iter, 
-                                       ncol = length(beta))
-  se_beta <- NA
-  for (iter in 1:max_iter) {
-    
-    # store results
-    beta_history[iter,] = beta_cur
-    
-    # Compute the gradient and hessian
-    new_pi <- exp(x %*% beta_cur) / (1 + exp(x %*% beta_cur))
-    
-    gradient <- t(x) %*% (y - new_pi)
-    hessian_ls = as.list(rep(NA, length.out = length(y)))
-    
-    for(i in 1:length(y)){
-      hessian_ls[[i]] <- as.numeric(new_pi[i, ] * (1 - new_pi[i, ])) * tcrossprod(x[i,], x[i,])
-    }
-    
-    hessian <- -1 * Reduce("+", hessian_ls)
-    
-    gradient_vec[iter,] = gradient
-    
-    # Change stopping criterion ?? either converges super fast or not at all..
-    if(sqrt(sum(gradient^2)) < tol){
-      message("Converged in", iter, "iterations.\n")
-      se_beta <- sqrt(diag(solve(-hessian)))
-      print(se_beta)
-      break
-    }
-    
-    # Update the solution
-    beta_cur = beta_cur - solve(hessian) %*% gradient
-  }
-  
-  return(list(solution = beta_cur, 
-              beta_history = beta_history,
-              gradient = gradient_vec,
-              converged = (iter < max_iter),
-              niter = iter,
-              se_beta = se_beta))
-}
-```
 
 ```{r}
 n_sim <- 1
-sim_results <- vector("list", length = n_sim)
+sim_results <- list(newton = NULL, gradient = NULL)
 
 for (i in 1:n_sim) {
   sim_data <- gen_logit_data(n = 200,
@@ -188,7 +145,7 @@ for (i in 1:n_sim) {
                      beta1 = 0.3)
   
   initial_guess <- c(2, 1)
-  sim_results[[i]] <- newton_logit(beta = initial_guess,
+  sim_results[[i]]$newton <- newton_logit(beta = initial_guess,
                     x = sim_data$x,
                     y = sim_data$y)
   
@@ -196,7 +153,7 @@ for (i in 1:n_sim) {
 ```
 
 ```{r}
-sim_results[[1]]$solution
+sim_results[[1]]$newton$solution
 ```
 
 ## GLM
@@ -317,83 +274,6 @@ $$
 M-step: $\frac{\sum_{i=1}^{n} y_i}{n} = \lambda$
 
 ## Implementation
-```{r}
-em_censored_data <- function(y, delta, guess, tol = 1e-12, max_iter = 100) {
-  
-  lambda <- guess 
-  n <- length(y)
-  tol_criteria <- Inf
-  
-  # define vectors to store elements of interest
-  observed_ll = rep(NA, length = max_iter)
-  lambda_hist = rep(NA, length = max_iter)
-  
-  for (iter in 1:max_iter) {
-    
-    # E-step: Expectation of censored survival times
-    expected_t <- y + (1 - delta) * lambda  # E[t_i | censored]
-    
-    # M-step: Update lambda
-    lambda_new <- sum(expected_t) / n
-    
-    # Use Q function to monitor convergence
-    observed_ll[iter] <- -n * log(lambda_new) - sum(expected_t) / lambda_new
-    
-    # Stores lambda history
-    lambda_hist[iter] <- lambda_new
-    
-    if(iter > 1){
-      tol_criteria = observed_ll[iter] - observed_ll[iter - 1]
-      
-      # Uses squared difference between current and previous iteration of beta
-      tol_criteria = (lambda_hist[iter] - lambda_hist[iter - 1])^2
-    }
-    
-    if (tol_criteria < tol) {
-      #cat("Converged in", iter, "iterations.\n")
-      break
-    }
-    
-    lambda <- lambda_new
-  }
-  
-  return(list(solution = lambda, 
-              lambda_history = lambda_hist,
-              converged = (iter < max_iter),
-              niter = iter))
-}
-
-```
-
-```{r}
-# Gets variance of EM parameter estimate via bootstrapping
-get_em_var <- function(y, delta, lambda_estim, guess, B) {
-  n <- length(y)
-  bootstrap_estimates <- rep(NA, B)
-  
-  
-  for (b in 1:B) {
-    # Resamples data
-    sample_indices <- sample(1:n, size = n, replace = TRUE)
-    y_boot <- y[sample_indices]
-    delta_boot <- delta[sample_indices]
-    
-    # Calculates new parameter estimate for sample data
-    lambda_boot <- em_censored_data(y = y_boot, 
-                                    delta = delta_boot,
-                                    guess = guess)
-        
-
-    bootstrap_estimates[b] <- lambda_boot$solution
-    
-  }
-  
-  # Gets variance of the bootstrapped MLEs
-  lambda_var <- var(bootstrap_estimates)
-  
-  return(lambda_var)
-}
-```
 
 
 ```{r}

@@ -1,3 +1,4 @@
+# Generates Simulation Data
 gen_logit_data <- function(n, beta0, beta1) {
   x <- rnorm(n)
   x <- cbind(1, x)
