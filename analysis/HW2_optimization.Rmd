@@ -28,7 +28,7 @@ source(here("source", "gen_logit_data.R"))
 source(here("source", "optim_logit.R"))
 source(here("source", "newton_logit.R"))
 source(here("source", "glm_logit.R"))
-
+source(here("source", "mm_logit.R"))
 source(here("source", "em_survival.R"))
 
 set.seed(3000)
@@ -188,6 +188,42 @@ The negative hessian is always positive, thus this is a convex optimization prob
 $$-\log\{1 + \exp{x_i^T\theta}\} \ge -\log\{1 + \exp(X_i^T\theta^{(k)})\} - \frac{\exp(X_i^T\theta) - \exp(X_i^T\theta^{(k)})}{1 + \exp(X_i^T\theta^{(k)})}$$
 with equality when $\theta = \theta^{(k)}$. This eliminates the log terms.
 
+$$
+\text{Prove} \quad -\log \left( 1 + e^{x_i^T \theta} \right) \geq -\log \left(1 + e^{x_i^T \theta^{(k)}} \right) - \frac{e^{x_i^T \theta^{(k)}} - e^{x_i^T \theta}}{1 + e^{x_i^T \theta^{(k)}}}
+$$
+
+
+Supporting hyperplane property:
+
+$$
+f(y) \geq f(x) + \nabla f(x)^T (y - x), \quad \forall x, y \in \mathbb{R}^p
+$$
+
+
+$$
+-\log (y) \geq -\log (x) - \frac{1}{x} (y - x)
+$$
+
+We can substitute our expressions for x and y:
+
+$$
+y = 1 + e^{x_i^T \theta}
+$$
+
+$$
+x = 1 + e^{x_i^T \theta^{(k)}}
+$$
+
+
+$$
+-\log \left( 1 + e^{x_i^T \theta} \right) \geq -\log \left( 1 + e^{x_i^T \theta^{(k)}} \right) - \frac{(1 + e^{x_i^T \theta^{(k)}}) - (1 + e^{x_i^T \theta})}{1 + e^{x_i^T \theta^{(k)}}}
+$$
+
+
+$$
+-\log \left( 1 + e^{x_i^T \theta} \right) \geq -\log \left( 1 + e^{x_i^T \theta^{(k)}} \right) - \frac{e^{x_i^T \theta^{(k)}} - e^{x_i^T \theta}}{1 + e^{x_i^T \theta^{(k)}}}
+$$
+
 
 <br>
 
@@ -202,7 +238,26 @@ up to a constant that does not depend on $\theta$.
 
 $$ -\sum_{i = 1}^n \frac{\exp(X_i^T\theta^{(k)})X_{ij}\exp(-pX_{ij}\theta_j^{(k)})}{1 + \exp(X_i^T\theta^{(k)})}\exp(pX_{ij}\theta_j) + \sum_{i = 1}^nY_iX_{ij} = 0$$
 
-for each $j$.
+
+
+To maximize, take derivative w.r.t. $\theta_j$ and set to 0:
+
+
+$$
+\frac{d}{d \theta_j}g = -\frac{1}{p} \sum_{i=1}^{n} \frac{e^{x_i^T \theta^k}}{1 + e^{x_i^T \theta^k}} p x_{ij} e^{p x_{ij} (\theta_j - \theta_j^k)}  + \sum_{i=1}^{n} y_i x_{ij} = 0
+$$
+
+Rewriting:
+
+$$
+- \sum_{i=1}^{n} \frac{e^{x_i^T \theta^k}}{1 + e^{x_i^T \theta^k}} x_{ij} e^{p x_{ij} (\theta_j - \theta_j^k)} + \sum_{i=1}^{n} y_i x_{ij} = 0
+$$
+
+Simplifying further:
+
+$$
+- \sum_{i=1}^{n} \frac{x_{ij} e^{x_i^T \theta^k}}{1 + e^{x_i^T \theta^k}} e^{p x_{ij} \theta_j} e^{-p x_{ij} \theta_j^k} + \sum_{i=1}^{n} y_i x_{ij} = 0
+$$
 
 ### Problem 3: simulation
 
@@ -262,6 +317,11 @@ for (i in 1:n_sim) {
                     alpha = alpha)
   
   sim_results[[i]]$glm <- run_glm(beta = initial_guess,
+                    x = sim_data$x,
+                    y = sim_data$y,
+                    alpha = alpha)
+  
+  sim_results[[i]]$mm <- mm_logit(beta = initial_guess,
                     x = sim_data$x,
                     y = sim_data$y,
                     alpha = alpha)
