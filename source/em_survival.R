@@ -26,11 +26,10 @@ em_censored_data <- function(y, delta, guess, tol = 1e-12, max_iter = 100) {
       tol_criteria = observed_ll[iter] - observed_ll[iter - 1]
 
       # Uses squared difference between current and previous iteration of beta
-      tol_criteria = (lambda_hist[iter] - lambda_hist[iter - 1])^2
+      #tol_criteria = (lambda_hist[iter] - lambda_hist[iter - 1])^2
     }
 
     if (tol_criteria < tol) {
-      #cat("Converged in", iter, "iterations.\n")
       break
     }
 
@@ -43,7 +42,7 @@ em_censored_data <- function(y, delta, guess, tol = 1e-12, max_iter = 100) {
               niter = iter))
 }
 
-get_em_var <- function(y, delta, lambda_estim, guess, B) {
+get_em_ci <- function(y, delta, lambda_estim, guess, B, alpha) {
   n <- length(y)
   bootstrap_estimates <- rep(NA, B)
 
@@ -64,8 +63,10 @@ get_em_var <- function(y, delta, lambda_estim, guess, B) {
 
   }
 
-  # Gets variance of the bootstrapped MLEs
-  lambda_var <- var(bootstrap_estimates)
+  ci_l <- quantile(bootstrap_estimates, alpha / 2)
+  ci_u <- quantile(bootstrap_estimates, 1 - alpha/2)
 
-  return(lambda_var)
+  return(list(ci_l = ci_l,
+              ci_u = ci_u))
+
 }

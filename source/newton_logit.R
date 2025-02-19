@@ -1,9 +1,11 @@
-newton_logit <- function(beta, x, y, tol = 1e-8, max_iter = 100) {
+newton_logit <- function(beta, x, y, alpha, tol = 1e-8, max_iter = 100) {
 
   beta_cur = beta
   beta_history = gradient_vec = matrix(NA, nrow = max_iter,
                                        ncol = length(beta))
   se_beta <- NA
+
+  tic()
   for (iter in 1:max_iter) {
 
     # store results
@@ -25,9 +27,7 @@ newton_logit <- function(beta, x, y, tol = 1e-8, max_iter = 100) {
 
     # Change stopping criterion ?? either converges super fast or not at all..
     if(sqrt(sum(gradient^2)) < tol){
-      message("Converged in", iter, "iterations.\n")
       se_beta <- sqrt(diag(solve(-hessian)))
-      print(se_beta)
       break
     }
 
@@ -35,10 +35,28 @@ newton_logit <- function(beta, x, y, tol = 1e-8, max_iter = 100) {
     beta_cur = beta_cur - solve(hessian) %*% gradient
   }
 
-  return(list(solution = beta_cur,
+  time_elapsed <- toc(quiet = TRUE)
+
+  solution = beta_cur
+  ci_l = beta_cur - qnorm(1 - alpha/2) * se_beta
+  ci_u = beta_cur + qnorm(1 - alpha/2) * se_beta
+  beta0_ci_l <- ci_l[[1]]
+  beta0_ci_u <- ci_u[[1]]
+  beta1_ci_l <- ci_l[[2]]
+  beta1_ci_u <- ci_u[[2]]
+
+
+  return(list(beta0_sol = solution[[1]],
+              beta1_sol = solution[[2]],
+              se_beta0 = se_beta[[1]],
+              se_beta1 = se_beta[[2]],
+              beta0_ci_l = beta0_ci_l,
+              beta0_ci_u = beta0_ci_u,
+              beta1_ci_l = beta1_ci_l,
+              beta1_ci_u = beta1_ci_u,
               beta_history = beta_history,
               gradient = gradient_vec,
               converged = (iter < max_iter),
               niter = iter,
-              se_beta = se_beta))
+              time_elapsed = time_elapsed$toc - time_elapsed$tic))
 }

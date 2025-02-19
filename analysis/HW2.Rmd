@@ -17,6 +17,7 @@ library(tidyverse)
 library(here)
 library(survival)
 library(eha)
+library(tictoc)
 
 knitr::opts_chunk$set(
   echo = FALSE,
@@ -29,6 +30,7 @@ knitr::opts_chunk$set(
 theme_set(theme_bw() + theme(legend.position = "bottom"))
 
 source(here("source", "gen_logit_data.R"))
+source(here("source", "optim_logit.R"))
 source(here("source", "newton_logit.R"))
 source(here("source", "em_survival.R"))
 
@@ -133,10 +135,10 @@ The negative hessian is always positive, thus this is a convex optimization prob
 Add in Latex here
 
 # 3
-## Newton
 
 ```{r}
 n_sim <- 1
+alpha <- 0.05
 sim_results <- list(newton = NULL, gradient = NULL)
 
 for (i in 1:n_sim) {
@@ -145,25 +147,23 @@ for (i in 1:n_sim) {
                      beta1 = 0.3)
   
   initial_guess <- c(2, 1)
+  
   sim_results[[i]]$newton <- newton_logit(beta = initial_guess,
                     x = sim_data$x,
-                    y = sim_data$y)
+                    y = sim_data$y,
+                    alpha = alpha)
+  
+  sim_results[[i]]$optim <- run_optim(beta = initial_guess,
+                    x = sim_data$x,
+                    y = sim_data$y,
+                    alpha = alpha)
+  
   
 }
 ```
 
-```{r}
-sim_results[[1]]$newton$solution
-```
-
-## GLM
-```{r}
 
 
-mod = glm(y ~ x, data = sim_data, family = binomial)
-coef(mod)
-
-```
 
 
 # 4
