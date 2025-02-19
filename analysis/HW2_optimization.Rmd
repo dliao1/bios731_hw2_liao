@@ -27,6 +27,8 @@ theme_set(theme_bw() + theme(legend.position = "bottom"))
 source(here("source", "gen_logit_data.R"))
 source(here("source", "optim_logit.R"))
 source(here("source", "newton_logit.R"))
+source(here("source", "glm_logit.R"))
+
 source(here("source", "em_survival.R"))
 
 set.seed(3000)
@@ -240,7 +242,7 @@ Make 2-3 plots or tables comparing your results, and summarize these findings in
 ```{r}
 n_sim <- 1
 alpha <- 0.05
-sim_results <- list(newton = NULL, gradient = NULL)
+sim_results <- list(newton = NULL, optim = NULL, glm = NULL, mm = NULL)
 
 for (i in 1:n_sim) {
   sim_data <- gen_logit_data(n = 200,
@@ -255,6 +257,11 @@ for (i in 1:n_sim) {
                     alpha = alpha)
   
   sim_results[[i]]$optim <- run_optim(beta = initial_guess,
+                    x = sim_data$x,
+                    y = sim_data$y,
+                    alpha = alpha)
+  
+  sim_results[[i]]$glm <- run_glm(beta = initial_guess,
                     x = sim_data$x,
                     y = sim_data$y,
                     alpha = alpha)
