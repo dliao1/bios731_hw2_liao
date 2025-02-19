@@ -33,6 +33,7 @@ run_optim <- function(beta, x, y, alpha) {
               beta0_ci_u = beta0_ci_u,
               beta1_ci_l = beta1_ci_l,
               beta1_ci_u = beta1_ci_u,
+              niter = optim_fit$counts,
               time_elapsed = time_elapsed$toc - time_elapsed$tic))
 
 }

@@ -26,6 +26,7 @@ run_glm <- function(beta, x, y, alpha) {
     beta0_ci_u = beta0_ci_u,
     beta1_ci_l = beta1_ci_l,
     beta1_ci_u = beta1_ci_u,
+    niter = glm_fit$iter,
     time_elapsed = time_elapsed$toc - time_elapsed$tic
   ))
 }

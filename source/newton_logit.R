@@ -1,4 +1,4 @@
-newton_logit <- function(beta, x, y, alpha, tol = 1e-8, max_iter = 100) {
+newton_logit <- function(beta, x, y, alpha, tol = 1e-8, max_iter = 200) {
 
   beta_cur = beta
   beta_history = gradient_vec = matrix(NA, nrow = max_iter,
@@ -25,8 +25,7 @@ newton_logit <- function(beta, x, y, alpha, tol = 1e-8, max_iter = 100) {
 
     gradient_vec[iter,] = gradient
 
-    # Change stopping criterion ?? either converges super fast or not at all..
-    if(sqrt(sum(gradient^2)) < tol){
+    if(abs(sum(beta_history[iter] - beta_history[iter - 1])) < tol & iter > 1){
       se_beta <- sqrt(diag(solve(-hessian)))
       break
     }
